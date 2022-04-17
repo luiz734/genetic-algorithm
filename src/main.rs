@@ -1,47 +1,37 @@
 mod genetic_algorithm;
 use genetic_algorithm::tsp;
 use std::thread;
-use std::time;
 use std::sync::mpsc;
 use sfml::system::Vector2f;
-use sfml::window::{ContextSettings, VideoMode, Style, Window, Event};
-use sfml::graphics::{RenderWindow, RenderTarget, CircleShape, Color, Transformable, Shape};
+use sfml::window::{VideoMode, Style, Event};
+use sfml::graphics::{RenderStates,PrimitiveType, Vertex, RenderWindow, RenderTarget, CircleShape, Color, Shape};
 /*
 clear & LD_LIBRARY_PATH=/usr/local/lib cargo r
 */
-#[derive(Debug)]
-struct Data {
-    current_gen: usize,
-    points: Vec<tsp::Point>,
-    cities: Vec<usize>,
-}
-impl Data {
-    pub fn new(current_gen: usize, cities: Vec<usize>) -> Data {
-        Data {
-            current_gen,
-            points: Vec::new(),
-            cities,
-        }
-    } 
-}
 
 fn main() {
-    // let mut tsp = tsp::Tsp::new(20, 100, 0.05);
-    // tsp.generate_cities();
-    // tsp.generate_distance_matrix();
-    // tsp.generate_population();
-    // tsp.run();
-
     let (tx, rx) = mpsc::channel();
-
+    let (t_tsp, r_tsp) = mpsc::channel();
     thread::spawn(move || {
-        let mut count: usize = 0;
-        loop {
-            let data = Data::new(12, vec![1, 2, 3]);
-            count += 1;
-            tx.send(data).unwrap();
-        }
+        let mut tsp = tsp::Tsp::new(20, 100, 0.05);
+        tsp.generate_cities(t_tsp);
+        tsp.generate_distance_matrix();
+        tsp.generate_population();
+        tsp.run(tx);
     });
+    let cities = r_tsp.recv().unwrap();
+    let mut ui_points :Vec<Vertex> = Vec::new();
+    let (scale_x, scale_y) = (8., 6.);
+    for p in cities {
+        let radius = 5.;
+        let position = Vector2f::new(
+            scale_x * p.x - (radius / 2.),
+            scale_y * p.y - (radius / 2.));
+
+        let vertex = Vertex::new(position, Color::WHITE, Vector2f::new(0.,0.));
+       ui_points.push(vertex);
+    }
+
     // Create the window of the application
     let mut window = RenderWindow::new(
 
@@ -61,22 +51,34 @@ fn main() {
                 window.close();
             }
         }
+                
         window.clear(Color::BLACK);
-        window.draw(&circle);
+
+
+        let mut vertexes: Vec<Vertex> = Vec::new();
+        match rx.recv() {
+            Ok(data) => {
+                // println!("Gen: {} {:?} {}", data.current_gen, data.order, data.fitness);
+                println!("{:#?}", data);
+                for city in data.order {
+                    vertexes.push(ui_points[city].clone());
+                }
+                if vertexes.len() > 0 {
+                    vertexes.push(vertexes[0].clone());
+                }
+            }
+            Err(_) => { println!("Wait");}
+        }
+        window.draw_primitives(ui_points.as_slice(), PrimitiveType::POINTS, &RenderStates::DEFAULT); 
+        window.draw_primitives(vertexes.as_slice(), PrimitiveType::LINE_STRIP, &RenderStates::DEFAULT); 
         window.display();
     
         // Activate the window for OpenGL rendering
         window.set_active(true);
     
-        // OpenGL drawing commands go here...
-    
         // End the current frame and display its contents on screen
-        window.display();
     }
-    //  loop {  
-    //     let received = rx.recv().unwrap();
-    //     println!("Got {:#?}", received);
-    // }
+
 }
 
 

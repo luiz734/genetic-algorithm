@@ -2,11 +2,27 @@
 pub mod tsp{
    use rand::{Rng, seq::SliceRandom, distributions::{Distribution, Uniform}};
    use num::pow;
+   use std::sync::mpsc;
 
+   #[derive(Debug)]
+   pub struct Data {
+      pub current_gen: usize,
+      pub order: Vec<usize>,
+      pub fitness: f32,
+   }
+   impl Data {
+      pub fn new(current_gen: usize, order: Vec<usize>, fitness: f32) -> Data {
+         Data {
+               current_gen,
+               order,
+               fitness,
+         }
+      } 
+   }
    #[derive(Debug, Clone)]
    pub struct Point {
-      x: f32,
-      y: f32
+      pub x: f32,
+      pub y: f32
    }
    impl Point {
       fn create_random() -> Point {
@@ -40,10 +56,11 @@ pub mod tsp{
             mutation_rate,
          }
       }
-      pub fn generate_cities(&mut self) {
+      pub fn generate_cities(&mut self, t_tsp: mpsc::Sender<Vec<Point>>) {
          for _i in 0..self.n_cities {
             self.cities.push(Point::create_random());
          }
+         t_tsp.send(self.cities.clone()).unwrap();
       }
       pub fn generate_distance_matrix(&mut self) {
          dbg!(self.n_cities);
@@ -63,6 +80,7 @@ pub mod tsp{
             self.population.push(individual);
          }
       }
+      // TODO: implement optimal selection
       pub fn weighted_index(&mut self) -> usize {
          let weights: Vec<f32> = self.population.iter().map(|idv|1./(pow(idv.fitness, 8)+1.)).collect();
          let total: f32 = weights.iter().sum();
@@ -130,7 +148,7 @@ pub mod tsp{
          child.calc_fitness(&self);
          child
       }
-      pub fn run(&mut self) {
+      pub fn run(&mut self, tx: mpsc::Sender<Data>) {
          let mut generations: usize = 0;
          let mut best_individual = self.population[0].clone();
          loop {
@@ -153,7 +171,7 @@ pub mod tsp{
             }
             if best_in_gen.fitness < best_individual.fitness {
                best_individual = best_in_gen;
-               println!("Gen: {} {:?}", generations, best_individual);
+               tx.send(Data::new(generations, best_individual.cities, best_individual.fitness)).unwrap();
             }
             generations += 1;
             self.population = next_population;
