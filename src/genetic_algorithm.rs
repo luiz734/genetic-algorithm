@@ -90,8 +90,8 @@ pub mod tsp{
          let mut i = 0;
          while i+1 < content.len() {
             self.cities.push(Point::new(
-               content[i], /// max_x * 100.,
-               content[i+1])); // / max_y * 100.));
+               content[i], // max_x * 100.,
+               content[i+1])); // max_y * 100.));
             i += 2;
          }      
          t_tsp.send(self.cities.clone()).unwrap();
@@ -184,7 +184,7 @@ pub mod tsp{
          child.calc_fitness(&self);
          child
       }
-      pub fn run(&mut self, tx: mpsc::Sender<Data>) {
+      pub fn run(&mut self, s_output: mpsc::Sender<Data>) {
          let mut generations: usize = 0;
          let mut best_individual = self.population[0].clone();
          best_individual.fitness = std::f32::INFINITY;
@@ -208,7 +208,7 @@ pub mod tsp{
             }
             if best_in_gen.fitness < best_individual.fitness {
                best_individual = best_in_gen;
-               tx.send(Data::new(generations, best_individual.cities, best_individual.fitness)).unwrap();
+               s_output.send(Data::new(generations, best_individual.cities, best_individual.fitness)).unwrap();
             }
             generations += 1;
             self.population = next_population;
@@ -254,4 +254,5 @@ pub mod tsp{
          self.cities[index_b] = tmp;
       }
    }
+
 }
