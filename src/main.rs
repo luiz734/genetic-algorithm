@@ -1,7 +1,6 @@
 mod genetic_algorithm;
 use genetic_algorithm::tsp;
-use std::env;
-use std::thread;
+use std::{env, thread};
 use std::sync::mpsc;
 use sfml::system::Vector2f;
 use sfml::window::{VideoMode, Style, Event};
@@ -42,8 +41,8 @@ fn main() {
         let args:Vec<String> = env::args().collect();
         let (n_cities, population_size, mutation_rate) = validate_input(args).unwrap(); 
         let mut tsp = tsp::Tsp::new(n_cities, population_size, mutation_rate);
+        // tsp.load_cities("cities.txt", t_tsp);
         tsp.generate_cities(t_tsp);
-        tsp.generate_distance_matrix();
         tsp.generate_population();
         tsp.run(tx);
     });

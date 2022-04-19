@@ -3,6 +3,7 @@ pub mod tsp{
    use rand::{Rng, seq::SliceRandom, distributions::{Distribution, Uniform}};
    use num::pow;
    use std::sync::mpsc;
+   use std::fs;
 
    #[derive(Debug)]
    pub struct Data {
@@ -25,6 +26,12 @@ pub mod tsp{
       pub y: f32
    }
    impl Point {
+      fn new(x: f32, y: f32) -> Point {
+         Point {
+            x,
+            y
+         }
+      }
       fn create_random() -> Point {
          let mut rng = rand::thread_rng(); 
          Point {
@@ -61,8 +68,37 @@ pub mod tsp{
             self.cities.push(Point::create_random());
          }
          t_tsp.send(self.cities.clone()).unwrap();
+         self.generate_distance_matrix();
       }
-      pub fn generate_distance_matrix(&mut self) {
+      pub fn load_cities(&mut self, path: &str, t_tsp: mpsc::Sender<Vec<Point>>) {
+         let content = match fs::read_to_string(path) {
+            Ok(f) => f.replace("\r\n", " ").replace("\n", " "),
+            Err(_) => panic!("Coundn't open file")
+         };
+         // convert raw file as str to vec<f32>
+         let content:Vec<f32> = content
+            .split(" ")
+            .map(|x|x.parse::<f32>().unwrap())
+            .collect();
+         // let (mut max_x, mut max_y, mut i) = (0., 0., 0);
+         // while i+1 < content.len() {
+         //    max_x = if content[i] > max_x {content[i]} else {max_x};
+         //    max_y = if content[i+1] > max_y {content[i+1]} else {max_y};
+         //    i += 2;
+         // }
+         // // create points vec mappint (x, y) from (0..n, 0..m) to (0..100, 0..100)
+         let mut i = 0;
+         while i+1 < content.len() {
+            self.cities.push(Point::new(
+               content[i], /// max_x * 100.,
+               content[i+1])); // / max_y * 100.));
+            i += 2;
+         }      
+         t_tsp.send(self.cities.clone()).unwrap();
+         self.generate_distance_matrix();
+         println!("{:#?}", self.cities);
+      }
+      fn generate_distance_matrix(&mut self) {
          dbg!(self.n_cities);
          for i in 0..(self.n_cities) {
             self.distance_matrix.push(Vec::new());
@@ -129,7 +165,7 @@ pub mod tsp{
       }
       pub fn reproduce(&self, parent_a: &Individual, parent_b: &Individual) -> Individual {
          let mut rng = rand::thread_rng(); 
-         let mut choices = Uniform::from(1..self.n_cities - 2);
+         let mut choices = Uniform::from(0..self.n_cities - 1);
          let rand_start = choices.sample(&mut rng);
          choices = Uniform::from(rand_start + 1..self.n_cities);
          let rand_end = choices.sample(&mut rng);
@@ -151,6 +187,7 @@ pub mod tsp{
       pub fn run(&mut self, tx: mpsc::Sender<Data>) {
          let mut generations: usize = 0;
          let mut best_individual = self.population[0].clone();
+         best_individual.fitness = std::f32::INFINITY;
          loop {
             let mut next_population:Vec<Individual> = Vec::new();
             for _i in 0..self.populazion_size {
